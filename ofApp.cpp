@@ -9,13 +9,15 @@ constexpr void ofApp::fillWavetable() {
 
 constexpr const int ofApp::getBankSize(int order) {
 	int size = 0;
-	for (int a = 2; a < order; a++) {
-		size += a;
-		for (int b = 1; b < a; b++) {
-			
+	for (int a = 3; a < degree + 1; a++) {
+		size++;
+		for (int b = 2; b < a; b++) {
+			if (a % b != 0) {
+				size++;
+			}
 		}
 	}
-	return size;
+	return size * 2 + 3;
 }
 
 void ofApp::hardwareSetup() {
@@ -34,7 +36,29 @@ void ofApp::hardwareSetup() {
 
 void ofApp::setup(){
 	fillWavetable();
-	array<float, getBankSize(degree)> oscillators;
+	const int bankSize = getBankSize(degree);
+	cout << bankSize << endl;
+	array<float, bankSize> oscillators;
+	oscillators[0] = 1.0;
+	oscillators[1] = 2.0;
+	oscillators[2] = 0.5;
+	for (int a = 3; a < degree + 1; a++) {
+		float aFloat = (float)a;
+		oscillators[bankIndex] = aFloat;
+		oscillators[bankIndex + 1] = 1.0 / aFloat;
+		bankIndex += 2;
+		for (int b = 2; b < a; b++) {
+			float bFloat = (float)b;
+			if (a % b != 0) {
+				oscillators[bankIndex] = aFloat / bFloat;
+				oscillators[bankIndex + 1] = bFloat / aFloat;
+				bankIndex += 2;
+			}
+		}
+	}
+	for (int a = 0; a < bankSize; a++) {
+		cout << oscillators[a] << endl;
+	}
 	phase = 0.0;
 	phaseIncrement = 0.001;
 	hardwareSetup();

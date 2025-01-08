@@ -15,6 +15,7 @@ class ofApp : public ofBaseApp{
 		const int sampleRate = 48000;
 		const int bufferSize = 256;
 		const int channels = 2;
+		int bankIndex = 3;
 		ofSoundStream stream;
 		void hardwareSetup();
 		float phase, phaseIncrement;
