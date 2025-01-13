@@ -20,7 +20,6 @@ constexpr void ofApp::fillWavetable() {
 constexpr const int ofApp::getBankSize(int order) {
 	int size = 0;
 	for (int a = 2; a < limit; a++) {
-		//size++;
 		bool aPrime = true;
 		for (int b = 2; b < a; b++) {
 			if (a % b == 0) {
@@ -43,6 +42,17 @@ constexpr const int ofApp::getBankSize(int order) {
 	return size * 2 + 3;
 }
 
+bool ofApp::checkPrime(int number) {
+	bool prime = true;
+	for (int c = 2; c < number; c++) {
+		if (number % c == 0) {
+			prime = false;
+			c = number;
+		}
+	}
+	return prime;
+}
+
 void ofApp::hardwareSetup() {
 	shader.load("ambientDrone");
 	frameBuffer.allocate(ofGetScreenWidth(), ofGetScreenHeight());
@@ -59,39 +69,17 @@ void ofApp::hardwareSetup() {
 
 void ofApp::setup() {
 	fillWavetable();
-	for (int a = 0; a < limit; a++) {
-		//cout << endl;
-	}
-	//const array<bool, limit> primesConstant = primes;
 	const int bankSize = getBankSize(limit);
-	//cout << bankSize << endl;
+	audioBankSize = bankSize;
 	array<float, bankSize> oscillators;
 	oscillators[0] = 1.0;
-	//oscillators[1] = 2.0;
-	//oscillators[2] = 0.5;
 	for (int a = 2; a < limit; a++) {
 		float aFloat = (float)a;
-		//oscillators[bankIndex] = aFloat;
-		//oscillators[bankIndex + 1] = 1.0 / aFloat;
-		//bankIndex += 2;
-		bool aPrime = true;
-		for (int b = 2; b < a; b++) {
-			if (a % b == 0) {
-				aPrime = false;
-				b = a;
-			}
-		}
+		bool aPrime = checkPrime(a);
 		for (int b = 1; b < a; b++) {
-			bool bPrime = true;
-			for (int c = 2; c < b; c++) {
-				if (b % c == 0) {
-					bPrime = false;
-					c = b;
-				}
-			}
+			bool bPrime = checkPrime(b);
 			if (aPrime || bPrime && a % b != 0) {
 				float bFloat = (float)b;
-				//cout << a << " " << b << endl;
 				oscillators[bankIndex] = aFloat / bFloat;
 				oscillators[bankIndex + 1] = bFloat / aFloat;
 				bankIndex += 2;
@@ -149,9 +137,15 @@ float ofApp::oscillate(float phase, float phaseIncrement) {
 }
 
 void ofApp::audioOut(ofSoundBuffer& buffer) {
+	if (audioSetup)
+		
+		audioSetup = false;
+	}
 	for (int a = 0; a < buffer.getNumFrames(); a++) {
-		//cout << phase << endl;
 		for (int b = 0; b < channels; b++) {
+			for (int c = 0; c < audioBankSize; c++) {
+
+			}
 			phase += phaseIncrement;
 			phase = fmod(phase, 1.0);
 			sample[b] = lookup(phase);

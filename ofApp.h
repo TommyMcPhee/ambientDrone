@@ -10,6 +10,8 @@ public:
 	array<bool, limit> primes;
 	constexpr void fillWavetable();
 	constexpr static const int getBankSize(int order);
+	static int audioBankSize;
+	bool checkPrime(int number);
 	ofShader shader;
 	ofFbo frameBuffer;
 	ofSoundStreamSettings streamSettings;
@@ -26,6 +28,7 @@ public:
 	void setUniforms();
 	void draw();
 	void ofSoundStreamSetup(ofSoundStreamSettings settings);
+	bool audioSetup = true;
 	float averageTwo(float inA, float inB, float mix);
 	float lookup(float phase);
 	float oscillate(float phase, float phaseIncrement);
