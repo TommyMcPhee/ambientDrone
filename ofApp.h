@@ -7,10 +7,12 @@ public:
 	static const int wavetableSize = 256;
 	array<float, wavetableSize> wavetable;
 	static const int limit = 17;
+	static const int pseudoLimit = limit - 1;
 	array<bool, limit> primes;
 	constexpr void fillWavetable();
-	constexpr static const int getBankSize(int order);
-	static int audioBankSize;
+	constexpr const int getBankSize(int order);
+	int bankSize;
+	array<float, pseudoLimit * pseudoLimit + 1> oscillators;
 	bool checkPrime(int number);
 	ofShader shader;
 	ofFbo frameBuffer;
