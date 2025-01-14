@@ -12,7 +12,7 @@ public:
 	constexpr void fillWavetable();
 	constexpr const int getBankSize(int order);
 	int bankSize;
-	array<float, pseudoLimit * pseudoLimit + 1> oscillators;
+	array<array<float, 2>, pseudoLimit * pseudoLimit + 1> oscillators;
 	bool checkPrime(int number);
 	ofShader shader;
 	ofFbo frameBuffer;

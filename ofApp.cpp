@@ -45,7 +45,7 @@ void ofApp::hardwareSetup() {
 void ofApp::setup() {
 	fillWavetable();
 	phase = 0.0;
-	phaseIncrement = 0.001;
+	phaseIncrement = 0.01;
 	hardwareSetup();
 }
 
@@ -93,7 +93,7 @@ float ofApp::oscillate(float phase, float phaseIncrement) {
 
 void ofApp::audioOut(ofSoundBuffer& buffer) {
 	if (audioSetup){
-		oscillators[0] = 1.0;
+		oscillators[0][0] = 1.0;
 		for (int a = 2; a < limit; a++) {
 			float aFloat = (float)a;
 			bool aPrime = checkPrime(a);
@@ -101,25 +101,26 @@ void ofApp::audioOut(ofSoundBuffer& buffer) {
 				bool bPrime = checkPrime(b);
 				if (aPrime || bPrime && a % b != 0) {
 					float bFloat = (float)b;
-					oscillators[bankIndex] = aFloat / bFloat;
-					oscillators[bankIndex + 1] = bFloat / aFloat;
+					oscillators[bankIndex][0] = aFloat / bFloat;
+					oscillators[bankIndex + 1][0] = bFloat / aFloat;
 					bankIndex += 2;
 				}
 			}
 		}
-		for (int a = 0; a < bankIndex + 1; a++) {
-			cout << oscillators[a] << endl;
+		bankSize = bankIndex + 1;
+		for (int a = 0; a < bankSize; a++) {
+			cout << oscillators[a][0] << endl;
 		}
 		audioSetup = false;
 }
 for (int a = 0; a < buffer.getNumFrames(); a++) {
 	for (int b = 0; b < channels; b++) {
+		sample[b] = 0.0;
 		for (int c = 0; c < bankSize; c++) {
-
+			oscillators[c][1] += phaseIncrement * oscillators[c][0];
+			oscillators[c][1] = fmod(oscillators[c][1], 1.0);
+			sample[b] += lookup(oscillators[c][1]) / (float)((c + 1) * bankSize);
 		}
-		phase += phaseIncrement;
-		phase = fmod(phase, 1.0);
-		sample[b] = lookup(phase);
 		buffer[a * channels + b] = sample[b];
 	}
 }
