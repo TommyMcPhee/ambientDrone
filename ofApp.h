@@ -12,7 +12,7 @@ public:
 	constexpr void fillWavetable();
 	constexpr const int getBankSize(int order);
 	int bankSize;
-	array<array<float, 2>, pseudoLimit * pseudoLimit + 1> oscillators;
+	array<array<float, 4>, pseudoLimit * pseudoLimit + 1> oscillators;
 	bool checkPrime(int number);
 	ofShader shader;
 	ofFbo frameBuffer;
@@ -20,10 +20,11 @@ public:
 	const int sampleRate = 48000;
 	const int bufferSize = 256;
 	const int channels = 2;
+	float length = (float)sampleRate * 1200.0;
 	int bankIndex = 1;
 	ofSoundStream stream;
 	void hardwareSetup();
-	float phase, phaseIncrement;
+	float phase = 0.0, phaseIncrement = (float)sampleRate * 0.5 / (float)limit;
 	void setup();
 	float width, height;
 	ofVec2f window;
