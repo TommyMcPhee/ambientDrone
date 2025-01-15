@@ -44,7 +44,6 @@ void ofApp::hardwareSetup() {
 
 void ofApp::setup() {
 	fillWavetable();
-	test = 0.5;
 	hardwareSetup();
 }
 
