@@ -44,6 +44,7 @@ void ofApp::hardwareSetup() {
 
 void ofApp::setup() {
 	fillWavetable();
+	test = 0.5;
 	hardwareSetup();
 }
 
@@ -71,11 +72,26 @@ void ofApp::ofSoundStreamSetup(ofSoundStreamSettings streamSettings) {
 
 }
 
-float ofApp::averageTwo(float inA, float inB, float mix) {
+inline float ofApp::randomWalk(float initial, float delta) {
+	float increment = delta * ofRandomf() * (1.0 - droneAmplitude) * initial * (1.0 - initial);
+	float step = initial + increment;
+	if (step <= delta) {
+		return delta * abs(ofRandomf());
+	}
+	if (step >= 1.0 - delta) {
+		return 1.0 - (delta * abs(ofRandomf()));
+	}
+	else {
+		return initial + increment;
+	}
+	//return 0.5;
+}
+
+inline float ofApp::averageTwo(float inA, float inB, float mix) {
 	return (1.0 - mix) * inA + (inB * mix);
 }
 
-float ofApp::lookup(float phase) {
+inline float ofApp::lookup(float phase) {
 	float floatIndex = phase * (float)wavetableSize;
 	float remainderIndex = fmod(floatIndex, 1.0);
 	int intIndex = (int)floatIndex;
@@ -85,13 +101,8 @@ float ofApp::lookup(float phase) {
 	return averageTwo(wavetable[intIndex], wavetable[intIndex + 1], remainderIndex);
 }
 
-float ofApp::oscillate(float phase, float phaseIncrement) {
-	return 0.0;
-}
-
 void ofApp::audioOut(ofSoundBuffer& buffer) {
 	if (audioSetup) {
-		oscillators[0][2] = 1.0;
 		for (int a = 2; a < limit; a++) {
 			float aFloat = (float)a;
 			bool aPrime = checkPrime(a);
@@ -99,27 +110,38 @@ void ofApp::audioOut(ofSoundBuffer& buffer) {
 				bool bPrime = checkPrime(b);
 				if (aPrime || bPrime && a % b != 0) {
 					float bFloat = (float)b;
-					oscillators[bankIndex][2] = aFloat / bFloat;
-					oscillators[bankIndex + 1][2] = bFloat / aFloat;
+					oscillators[bankIndex][5] = aFloat / bFloat;
+					oscillators[bankIndex + 1][5] = bFloat / aFloat;
+					oscillators[bankIndex][6] = aFloat;
+					oscillators[bankIndex + 1][6] = aFloat;
 					bankIndex += 2;
 				}
 			}
 		}
-		bankSize = bankIndex + 1;
-		for (int a = 0; a < bankSize; a++) {
-			oscillators[a][0] = 0.707;
-			oscillators[a][1] = 0.707;
-			cout << oscillators[a][2] << endl;
+		for (int a = 0; a < bankIndex; a++) {
+			for (int b = 0; b < 4; b++) {
+				oscillators[a][b] = 0.5;
+			}
 		}
 		audioSetup = false;
 	}
 	for (int a = 0; a < buffer.getNumFrames(); a++) {
+		droneAmplitude = lookup(progress * 0.5);
+		for (int b = 0; b < bankIndex; b++) {
+			for (int c = 0; c < 4; c++) {
+				oscillators[b][c] = randomWalk(oscillators[b][c], 1.0 / oscillators[b][6]);
+			}
+		}
 		for (int b = 0; b < channels; b++) {
+			progress += progressIncrement;
 			sample[b] = 0.0;
-			for (int c = 0; c < bankSize; c++) {
-				oscillators[c][3] += phaseIncrement * oscillators[c][2];
-				oscillators[c][3] = fmod(oscillators[c][3], 1.0);
-				sample[b] += oscillators[c][b] * lookup(oscillators[c][3]) / (float)bankSize;
+			dronePhase += phaseIncrement;
+			dronePhase = fmod(dronePhase, 1.0);
+			droneSample = lookup(dronePhase) * droneAmplitude;
+			for (int c = 0; c < bankIndex; c++) {
+				oscillators[c][4] += phaseIncrement * oscillators[c][5] + (droneSample * oscillators[c][b + 2]);
+				oscillators[c][4] = fmod(oscillators[c][4], 1.0);
+				sample[b] += sqrt(oscillators[c][b]) * lookup(oscillators[c][4]) / (oscillators[c][6] * (float)bankIndex);
 			}
 			buffer[a * channels + b] = sample[b];
 		}
