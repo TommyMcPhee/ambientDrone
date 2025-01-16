@@ -4,14 +4,14 @@
 
 class ofApp : public ofBaseApp {
 public:
-	static const int wavetableSize = 256;
+	static const int wavetableSize = 8;
 	array<float, wavetableSize> wavetable;
 	static const int limit = 11;
 	static const int pseudoLimit = limit - 1;
 	array<bool, limit> primes;
 	constexpr void fillWavetable();
 	constexpr const int getBankSize(int order);
-	array<array<float, 7>, pseudoLimit* pseudoLimit> oscillators;
+	array<array<float, 8>, pseudoLimit * pseudoLimit> oscillators;
 	bool checkPrime(int number);
 	ofShader shader;
 	ofFbo frameBuffer;
@@ -35,7 +35,7 @@ public:
 	float randomWalk(float initial, float averageTwo);
 	float averageTwo(float inA, float inB, float mix);
 	float lookup(float phase);
-	float minimumFloat, progress = 0.0, droneAmplitude = 0.0, dronePhase = 0.0, droneSample = 0.0;
+	float progress = 0.0, droneAmplitude = 0.0, dronePhase = 0.0, droneSample = 0.0;
 	array<float, 2> sample;
 	void audioOut(ofSoundBuffer& audioBuffer);
 };
