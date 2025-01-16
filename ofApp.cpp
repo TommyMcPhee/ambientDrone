@@ -44,6 +44,7 @@ void ofApp::hardwareSetup() {
 
 void ofApp::setup() {
 	fillWavetable();
+	minimumFloat = std::numeric_limits<float>::min();
 	hardwareSetup();
 }
 
@@ -124,25 +125,29 @@ void ofApp::audioOut(ofSoundBuffer& buffer) {
 		}
 		audioSetup = false;
 	}
-	for (int a = 0; a < buffer.getNumFrames(); a++) {
-		droneAmplitude = lookup(progress * 0.5);
-		for (int b = 0; b < bankIndex; b++) {
-			for (int c = 0; c < 4; c++) {
-				oscillators[b][c] = randomWalk(oscillators[b][c], 1.0 / oscillators[b][6]);
+	else {
+		for (int a = 0; a < buffer.getNumFrames(); a++) {
+			droneAmplitude = lookup(progress * 0.5);
+			for (int b = 0; b < bankIndex; b++) {
+				for (int c = 0; c < 4; c++) {
+					oscillators[b][c] = randomWalk(oscillators[b][c], 1.0 / (float)pow(limit - (int)oscillators[b][6], limit));
+				}
 			}
-		}
-		for (int b = 0; b < channels; b++) {
-			progress += progressIncrement;
-			sample[b] = 0.0;
-			dronePhase += phaseIncrement;
-			dronePhase = fmod(dronePhase, 1.0);
-			droneSample = lookup(dronePhase) * droneAmplitude;
-			for (int c = 0; c < bankIndex; c++) {
-				oscillators[c][4] += phaseIncrement * oscillators[c][5] + (droneSample * oscillators[c][b + 2]);
-				oscillators[c][4] = fmod(oscillators[c][4], 1.0);
-				sample[b] += sqrt(oscillators[c][b]) * lookup(oscillators[c][4]) / (oscillators[c][6] * (float)bankIndex);
+			for (int b = 0; b < channels; b++) {
+				progress += progressIncrement;
+				sample[b] = 0.0;
+				dronePhase += phaseIncrement;
+				dronePhase = fmod(dronePhase, 1.0);
+				droneSample = lookup(dronePhase) * droneAmplitude;
+				for (int c = 0; c < bankIndex; c++) {
+					if (oscillators[c][b] >= minimumFloat) {
+						oscillators[c][4] += phaseIncrement * oscillators[c][5] + (droneSample * oscillators[c][b + 2]);
+						oscillators[c][4] = fmod(oscillators[c][4], 1.0);
+						sample[b] += sqrt(oscillators[c][b]) * lookup(oscillators[c][4]) / (oscillators[c][6] * (float)bankIndex);
+					}
+				}
+				buffer[a * channels + b] = sample[b];
 			}
-			buffer[a * channels + b] = sample[b];
 		}
 	}
 
