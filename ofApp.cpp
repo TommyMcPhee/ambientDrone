@@ -44,6 +44,7 @@ void ofApp::hardwareSetup() {
 
 void ofApp::setup() {
 	fillWavetable();
+	minimumFloat = std::numeric_limits<float>::min();
 	hardwareSetup();
 }
 
@@ -109,18 +110,17 @@ void ofApp::audioOut(ofSoundBuffer& buffer) {
 				bool bPrime = checkPrime(b);
 				if (aPrime || bPrime && a % b != 0) {
 					float bFloat = (float)b;
-					oscillators[bankIndex][6] = aFloat / bFloat;
-					oscillators[bankIndex + 1][6] = bFloat / aFloat;
-					oscillators[bankIndex][7] = aFloat;
-					oscillators[bankIndex + 1][7] = aFloat;
+					oscillators[bankIndex][5] = aFloat / bFloat;
+					oscillators[bankIndex + 1][5] = bFloat / aFloat;
+					oscillators[bankIndex][6] = aFloat;
+					oscillators[bankIndex + 1][6] = aFloat;
 					bankIndex += 2;
 				}
 			}
 		}
 		for (int a = 0; a < bankIndex; a++) {
-			oscillators[a][4] = ofRandomuf() * (1.0 - (1.0 / oscillators[a][7]));
 			for (int b = 0; b < 4; b++) {
-				oscillators[a][b] = 0.5;
+				oscillators[a][b] = 0.05;
 			}
 		}
 		audioSetup = false;
@@ -131,47 +131,60 @@ void ofApp::audioOut(ofSoundBuffer& buffer) {
 		dronePhase += phaseIncrement;
 		dronePhase = fmod(dronePhase, 1.0);
 		droneSample = lookup(dronePhase) * droneAmplitude;
+		activeOscillators = (float)bankIndex;
 		sample = { 0.0, 0.0 };
 		for (int b = 0; b < bankIndex; b++) {
-			float activeOscillators = 0.0;
-			if (progress > oscillators[b][4] && progress < oscillators[b][4] + (1.0 / oscillators[b][7])) {
-				activeOscillators++;
-				for (int c = 0; c < 2; c++) {
-					oscillators[b][c] = lookup((progress - oscillators[b][4]) / 2.0);
-				}
-				for (int c = 0; c < channels; c++) {
-					float increment = phaseIncrement * oscillators[b][6];
-					float inverseIncrement = 1.0 - increment;
-					oscillators[b][5] += increment + (droneSample * inverseIncrement * oscillators[b][c + 2]);
-					oscillators[b][5] = fmod(oscillators[b][5], 1.0);
-					sample[c] += sqrt(oscillators[b][c]) * lookup(oscillators[b][5]) * inverseIncrement / (oscillators[b][7] * activeOscillators);
-				}
+			if (keytotal > 0.0 && fmod(keytotal, oscillators[b][6]) == 0.0) {
+				activeOscillators--;
+				b++;
+			}
+			for (int c = 0; c < channels; c++) {
+				oscillators[b][c] = lookup(fmod(progress * pow(oscillators[b][6], fmod(keytotal, (float)limit)) * mouseX + oscillators[b][5], 1.0)) * 0.5 + 0.5;
+			}
+			for (int c = 0; c < channels; c++) {
+				float increment = phaseIncrement * oscillators[b][5];
+				float inverseIncrement = 1.0 - increment;
+				oscillators[b][4] += increment + (droneSample * inverseIncrement * oscillators[b][c + 2]);
+				oscillators[b][4] = fmod(oscillators[b][4], 1.0);
+				sample[c] += sqrt(oscillators[b][c]) * lookup(oscillators[b][4]) * pow(inverseIncrement, 4.0) / activeOscillators;
 			}
 		}
 		for (int b = 0; b < channels; b++) {
+			sample[b] = averageTwo(lastSample[b], sample[b], mouseY);
 			buffer[a * channels + b] = sample[b];
+			lastSample[b] = sample[b];
 		}
 	}
 
 }
 
-void ofApp::keyPressed(int key) {
+void ofApp::checkKeys() {
+	if (keytotal < 0) {
+		keytotal = 0.0;
+	}
+	cout << keytotal << endl;
+}
 
+void ofApp::keyPressed(int key) {
+	cout << key << endl;
+	keytotal += key;
 }
 
 //--------------------------------------------------------------
 void ofApp::keyReleased(int key) {
-
+	keytotal -= key;
+	checkKeys();
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseMoved(int x, int y) {
-
+	mouseX = (float)x / width;
+	mouseY = (float)y / height;
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseDragged(int x, int y, int button) {
-
+	cout << x << y << endl;
 }
 
 //--------------------------------------------------------------
