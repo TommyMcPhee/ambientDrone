@@ -118,6 +118,7 @@ void ofApp::audioOut(ofSoundBuffer& buffer) {
 			}
 		}
 		for (int a = 0; a < bankIndex; a++) {
+			oscillators[a][4] = ofRandomuf() * (1.0 - (1.0 / oscillators[a][7]));
 			for (int b = 0; b < 4; b++) {
 				oscillators[a][b] = 0.5;
 			}
@@ -125,25 +126,60 @@ void ofApp::audioOut(ofSoundBuffer& buffer) {
 		audioSetup = false;
 	}
 	for (int a = 0; a < buffer.getNumFrames(); a++) {
+		progress += progressIncrement;
 		droneAmplitude = lookup(progress * 0.5);
+		dronePhase += phaseIncrement;
+		dronePhase = fmod(dronePhase, 1.0);
+		droneSample = lookup(dronePhase) * droneAmplitude;
+		sample = { 0.0, 0.0 };
 		for (int b = 0; b < bankIndex; b++) {
-			for (int c = 0; c < 4; c++) {
-				oscillators[b][c] = randomWalk(oscillators[b][c], 1.0 / oscillators[b][7]);
+			float activeOscillators = 0.0;
+			if (progress > oscillators[b][4] && progress < oscillators[b][4] + (1.0 / oscillators[b][7])) {
+				activeOscillators++;
+				for (int c = 0; c < 2; c++) {
+					oscillators[b][c] = lookup((progress - oscillators[b][4]) / 2.0);
+				}
+				for (int c = 0; c < channels; c++) {
+					float increment = phaseIncrement * oscillators[b][6];
+					float inverseIncrement = 1.0 - increment;
+					oscillators[b][5] += increment + (droneSample * inverseIncrement * oscillators[b][c + 2]);
+					oscillators[b][5] = fmod(oscillators[b][5], 1.0);
+					sample[c] += sqrt(oscillators[b][c]) * lookup(oscillators[b][5]) * inverseIncrement / (oscillators[b][7] * activeOscillators);
+				}
 			}
 		}
 		for (int b = 0; b < channels; b++) {
-			progress += progressIncrement;
-			sample[b] = 0.0;
-			dronePhase += phaseIncrement;
-			dronePhase = fmod(dronePhase, 1.0);
-			droneSample = lookup(dronePhase) * droneAmplitude;
-			for (int c = 0; c < bankIndex; c++) {
-				oscillators[c][5] += phaseIncrement * oscillators[c][5] + (droneSample * oscillators[c][b + 2]);
-				oscillators[c][5] = fmod(oscillators[c][4], 1.0);
-				sample[b] += sqrt(oscillators[c][b]) * lookup(oscillators[c][5]) / (oscillators[c][7] * (float)bankIndex);
-			}
 			buffer[a * channels + b] = sample[b];
 		}
 	}
+
+}
+
+void ofApp::keyPressed(int key) {
+
+}
+
+//--------------------------------------------------------------
+void ofApp::keyReleased(int key) {
+
+}
+
+//--------------------------------------------------------------
+void ofApp::mouseMoved(int x, int y) {
+
+}
+
+//--------------------------------------------------------------
+void ofApp::mouseDragged(int x, int y, int button) {
+
+}
+
+//--------------------------------------------------------------
+void ofApp::mousePressed(int x, int y, int button) {
+
+}
+
+//--------------------------------------------------------------
+void ofApp::mouseReleased(int x, int y, int button) {
 
 }
