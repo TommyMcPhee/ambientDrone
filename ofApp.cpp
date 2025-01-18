@@ -28,6 +28,25 @@ bool ofApp::checkPrime(int number) {
 	return prime;
 }
 
+constexpr float ofApp::caculateKeyLimit(int maxFactor) {
+	bool maxComposite = false;
+	int a = maxFactor - 1;
+	while (!maxComposite) {
+		for (int b = 2; b < maxFactor; b++) {
+			if (a % b != 0) {
+				a++;
+				b = maxFactor;
+			}
+			else {
+				if (b == maxFactor - 1) {
+					return (float)a;
+					maxComposite = true;
+				}
+			}
+		}
+	}
+}
+
 void ofApp::hardwareSetup() {
 	shader.load("ambientDrone");
 	frameBuffer.allocate(ofGetScreenWidth(), ofGetScreenHeight());
@@ -45,11 +64,18 @@ void ofApp::hardwareSetup() {
 void ofApp::setup() {
 	fillWavetable();
 	minimumFloat = std::numeric_limits<float>::min();
+	keylimit = caculateKeyLimit(limit);
 	hardwareSetup();
 }
 
 void ofApp::setUniforms() {
 	shader.setUniform2f("window", window);
+	shader.setUniform2f("mouse", mouse);
+	shader.setUniform2f("mouseLeft", mouseLeft);
+	shader.setUniform2f("mouseCenter", mouseCenter);
+	shader.setUniform2f("mouseRight", mouseRight);
+	shader.setUniform1f("keytotal", keytotal);
+	shader.setUniform1f("progress", progress);
 	shader.setUniform1f("droneAmplitude", droneAmplitude);
 }
 
@@ -67,25 +93,13 @@ void ofApp::draw() {
 	shader.end();
 	frameBuffer.end();
 	frameBuffer.draw(0.0, 0.0);
+	cout << progress << endl;
 }
 
 void ofApp::ofSoundStreamSetup(ofSoundStreamSettings streamSettings) {
 
 }
 
-inline float ofApp::randomWalk(float initial, float delta) {
-	float increment = delta * ofRandomf() * (1.0 - droneAmplitude) * initial * (1.0 - initial);
-	float step = initial + increment;
-	if (step <= delta) {
-		return delta * abs(ofRandomf());
-	}
-	if (step >= 1.0 - delta) {
-		return 1.0 - (delta * abs(ofRandomf()));
-	}
-	else {
-		return initial + increment;
-	}
-}
 
 inline float ofApp::averageTwo(float inA, float inB, float mix) {
 	return (1.0 - mix) * inA + (inB * mix);
@@ -120,39 +134,69 @@ void ofApp::audioOut(ofSoundBuffer& buffer) {
 		}
 		for (int a = 0; a < bankIndex; a++) {
 			for (int b = 0; b < 4; b++) {
-				oscillators[a][b] = 0.05;
+				oscillators[a][b] = 0.5;
 			}
 		}
 		audioSetup = false;
 	}
+	int sameSample = 0;
 	for (int a = 0; a < buffer.getNumFrames(); a++) {
 		progress += progressIncrement;
-		droneAmplitude = lookup(progress * 0.5);
-		dronePhase += phaseIncrement;
+		fade = 1.0 - pow(abs(0.5 - progress) * 2.0, 16.0);
+		if (progress > 1.0) {
+			done = true;
+			ofSoundStreamClose();
+		}
+		droneAmplitude = lookup(progress * 0.5) / (float)limit;
+		phaseIncrement = (float)sampleRate / pow((float)limit, 1.0 + mouseCenter.y);
+		phaseIncrements[0] = phaseIncrement * mouseCenter.x;
+		phaseIncrements[1] = phaseIncrement * (1.0 - mouseCenter.x);
+		dronePhase += phaseIncrement * 0.5;
 		dronePhase = fmod(dronePhase, 1.0);
 		droneSample = lookup(dronePhase) * droneAmplitude;
 		activeOscillators = (float)bankIndex;
 		sample = { 0.0, 0.0 };
+		for (int b = 0; b < bankIndex; b++) {
+			for (int c = 0; c < 4; c++) {
+				oscillators[b][c] = lookup(fmod(progress * oscillators[b][6] * keytotal + oscillators[b][5] + (float)(c % 2 / 2) + (float)(c % 4), 1.0)) * 0.5 + 0.5;
+			}
+			float spatialize = averageTwo(mouseLeft.x, pow(mouseLeft.y, oscillators[b][5]), 0.5);
+			oscillators[b][0] = sqrt(spatialize);
+			oscillators[b][1] = sqrt(1.0 - spatialize);
+			float localize = averageTwo(mouseRight.x, pow(mouseRight.y, oscillators[b][5]), 0.5);;
+			oscillators[b][2] = sqrt(1.0 - localize);
+			oscillators[b][3] = sqrt(localize);
+		}
 		for (int b = 0; b < bankIndex; b++) {
 			if (keytotal > 0.0 && fmod(keytotal, oscillators[b][6]) == 0.0) {
 				activeOscillators--;
 				b++;
 			}
 			for (int c = 0; c < channels; c++) {
-				oscillators[b][c] = lookup(fmod(progress * pow(oscillators[b][6], fmod(keytotal, (float)limit)) * mouseX + oscillators[b][5], 1.0)) * 0.5 + 0.5;
-			}
-			for (int c = 0; c < channels; c++) {
-				float increment = phaseIncrement * oscillators[b][5];
+				float increment = phaseIncrements[c] * oscillators[b][5];
 				float inverseIncrement = 1.0 - increment;
 				oscillators[b][4] += increment + (droneSample * inverseIncrement * oscillators[b][c + 2]);
 				oscillators[b][4] = fmod(oscillators[b][4], 1.0);
-				sample[c] += sqrt(oscillators[b][c]) * lookup(oscillators[b][4]) * pow(inverseIncrement, 4.0) / activeOscillators;
+				sample[c] += oscillators[b][c] * lookup(oscillators[b][4]) / activeOscillators;
 			}
 		}
 		for (int b = 0; b < channels; b++) {
-			sample[b] = averageTwo(lastSample[b], sample[b], mouseY);
-			buffer[a * channels + b] = sample[b];
-			lastSample[b] = sample[b];
+			if (done) {
+				sample[b] = 0.0;
+			}
+			else {
+				if (sample[b] == lastSample[b]) {
+					sameSample++;
+				}
+				if (sameSample != bufferSize - 2) {
+					sample[b] = averageTwo(averageTwo(-1.0 * lastSample[b], sample[b], 1.0 - mouse.x), averageTwo(lastSample[b], sample[b], mouse.y), 0.5);
+				}
+				else {
+					sample[b] = ofRandomf() / (float)limit;
+				}
+				buffer[a * channels + b] = sample[b] * fade;
+				lastSample[b] = sample[b];
+			}
 		}
 	}
 
@@ -162,11 +206,17 @@ void ofApp::checkKeys() {
 	if (keytotal < 0) {
 		keytotal = 0.0;
 	}
-	cout << keytotal << endl;
+	else {
+		keytotal = fmod(keytotal, keylimit);
+	}
+}
+
+void ofApp::updateMouse(int x, int y) {
+	mouseX = 1.0 - ((float)x / width);
+	mouseY = (float)y / height;
 }
 
 void ofApp::keyPressed(int key) {
-	cout << key << endl;
 	keytotal += key;
 }
 
@@ -178,21 +228,22 @@ void ofApp::keyReleased(int key) {
 
 //--------------------------------------------------------------
 void ofApp::mouseMoved(int x, int y) {
-	mouseX = (float)x / width;
-	mouseY = (float)y / height;
+	updateMouse(x, y);
+	mouse.set(mouseX, mouseY);
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseDragged(int x, int y, int button) {
-	cout << x << y << endl;
-}
-
-//--------------------------------------------------------------
-void ofApp::mousePressed(int x, int y, int button) {
-
-}
-
-//--------------------------------------------------------------
-void ofApp::mouseReleased(int x, int y, int button) {
-
+	updateMouse(x, y);
+	switch (button) {
+	case 0:
+		mouseLeft.set(mouseX, mouseY);
+		break;
+	case 1:
+		mouseCenter.set(mouseX, mouseY);
+		break;
+	case 2:
+		mouseRight.set(mouseX, mouseY);
+		break;
+	}
 }
